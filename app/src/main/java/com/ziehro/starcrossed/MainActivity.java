@@ -1,8 +1,10 @@
 package com.ziehro.starcrossed;
 import static android.content.ContentValues.TAG;
 
+import android.app.AlertDialog;
 import android.app.DatePickerDialog;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
@@ -18,6 +20,7 @@ import android.view.ScaleGestureDetector;
 import android.view.View;
 import android.widget.Button;
 import android.widget.DatePicker;
+import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
@@ -31,14 +34,19 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Collections;
+import java.util.Date;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Random;
 import java.util.Set;
 
 public class MainActivity extends AppCompatActivity {
@@ -48,14 +56,41 @@ public class MainActivity extends AppCompatActivity {
     private TextView dateTV;
 
     private Button drawButton;
+    private SolarSystemView solarSystemView;
 
     private float[] planetOrbitRadii = {100, 200, 300, 400, 500, 600, 700, 800}; // Radii of planet orbits
     private String[] planetNames = {"mercury", "venus", "earth", "mars", "jupiter", "saturn", "uranus", "neptune"};
+    private Map<String, String> planetSymbols = new HashMap<String, String>() {{
+        put("mercury", "\u263F"); // ☿
+        put("venus", "\u2640");   // ♀
+        put("earth", "\u2295");   // ⊕
+        put("mars", "\u2642");    // ♂
+        put("jupiter", "\u2643"); // ♃
+        put("saturn", "\u2644");  // ♄
+        put("uranus", "\u2645");  // ♅
+        put("neptune", "\u2646"); // ♆
+    }};
 
     private float centerX;
     private float centerY;
     Button emailButton;
     private ScaleGestureDetector scaleGestureDetector;
+
+    int[] colors = new int[] {
+            Color.parseColor("#ff0000"),    // January - Red
+            Color.parseColor("#ff7f00"),    // February - Orange
+            Color.parseColor("#ffff00"),    // March - Yellow
+            Color.parseColor("#00ff00"),    // April - Green
+            Color.parseColor("#00ffff"),    // May - Cyan
+            Color.parseColor("#007fff"),    // June - Light Blue
+            Color.parseColor("#0000ff"),    // July - Blue
+            Color.parseColor("#7f00ff"),    // August - Violet
+            Color.parseColor("#ff00ff"),    // September - Magenta
+            Color.parseColor("#ff007f"),    // October - Rose
+            Color.parseColor("#7f7f7f"),    // November - Grey
+            Color.parseColor("#ffffff")     // December - White
+    };
+
 
 
     @Override
@@ -79,29 +114,72 @@ public class MainActivity extends AppCompatActivity {
         emailButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                try {
-                    File imageFile = createImageFile(canvasLayout);
+                // Create AlertDialog for title input
+                AlertDialog.Builder builder = new AlertDialog.Builder(MainActivity.this);
+                builder.setTitle("Enter a title");
 
-                    // Create email intent
-                    Intent emailIntent = new Intent(Intent.ACTION_SEND);
-                    emailIntent.setType("image/png");
-                    emailIntent.putExtra(Intent.EXTRA_SUBJECT, "My Solar System Image");
-                    emailIntent.putExtra(Intent.EXTRA_TEXT, "See attached image.");
-                    emailIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                // Set up the input
+                final EditText input = new EditText(MainActivity.this);
+                builder.setView(input);
 
-                    // Convert file to content URI (FileProvider is recommended way after Android N)
-                    Uri contentUri = FileProvider.getUriForFile(MainActivity.this, getApplicationContext().getPackageName() + ".provider", imageFile);
-                    emailIntent.putExtra(Intent.EXTRA_STREAM, contentUri);
+                // Set up the buttons
+                builder.setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        String title = input.getText().toString();
 
-                    // Start email intent
-                    if (emailIntent.resolveActivity(getPackageManager()) != null) {
-                        startActivity(Intent.createChooser(emailIntent, "Send email..."));
+                        // Add title to the solar system view
+                        SolarSystemView solarSystemView = (SolarSystemView) canvasLayout.getChildAt(0);  // Assuming SolarSystemView is the first child of canvasLayout
+                        solarSystemView.setTitle(title);
+                        solarSystemView.invalidate();  // Redraw the view with the new title
+
+                        try {
+                            File imageFile = createImageFile(canvasLayout);
+
+                            // Create email intent
+                            Intent emailIntent = new Intent(Intent.ACTION_SEND);
+                            emailIntent.setType("image/jpg");
+                            emailIntent.putExtra(Intent.EXTRA_SUBJECT, "My Solar System Image");
+                            emailIntent.putExtra(Intent.EXTRA_TEXT, "See attached image.");
+                            emailIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+
+                            // Convert file to content URI (FileProvider is recommended way after Android N)
+                            Uri contentUri = FileProvider.getUriForFile(MainActivity.this, getApplicationContext().getPackageName() + ".provider", imageFile);
+                            emailIntent.putExtra(Intent.EXTRA_STREAM, contentUri);
+
+                            // Start email intent
+                            if (emailIntent.resolveActivity(getPackageManager()) != null) {
+                                startActivity(Intent.createChooser(emailIntent, "Send email..."));
+                            }
+                        } catch (IOException e) {
+                            Log.e("EmailButton", "Error creating image file: " + e.getMessage());
+                        }
                     }
-                } catch (IOException e) {
-                    Log.e("EmailButton", "Error creating image file: " + e.getMessage());
-                }
+                });
+                builder.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        dialog.cancel();
+                    }
+                });
+
+                builder.show();
             }
         });
+
+
+        Button clearButton = findViewById(R.id.clearButton);
+        clearButton.setText("Clear Canvas");
+        clearButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                // When the button is clicked, remove all planet positions and clear the canvas
+                allPlanetPositions.clear();
+                canvasLayout.removeAllViews();
+                canvasLayout.invalidate();
+            }
+        });
+
 
 
         // Setup DatePickerDialog
@@ -143,9 +221,9 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
-    private void drawSolarSystem(String birthdate) {
-        canvasLayout.removeAllViews();
+    private List<float[]> allPlanetPositions = new ArrayList<>();
 
+    private void drawSolarSystem(String birthdate) {
         // Create an asynchronous task to handle the network request
         AsyncTask<String, Void, float[]> task = new AsyncTask<String, Void, float[]>() {
             @Override
@@ -156,7 +234,12 @@ public class MainActivity extends AppCompatActivity {
 
             @Override
             protected void onPostExecute(float[] planetPositions) {
-                SolarSystemView solarSystemView = new SolarSystemView(MainActivity.this, planetPositions);
+                allPlanetPositions.add(planetPositions);
+
+                canvasLayout.removeAllViews();  // We still need this line to clear old views
+
+                // Create a new SolarSystemView with all planet positions
+                SolarSystemView solarSystemView = new SolarSystemView(MainActivity.this, allPlanetPositions);
                 canvasLayout.addView(solarSystemView);
                 solarSystemView.invalidate();
 
@@ -179,6 +262,7 @@ public class MainActivity extends AppCompatActivity {
         private Paint hullPaint;
         private Paint starlinePaint;
         private float[] planetPositions; // Store planet positions here
+        private List<float[]> allPlanetPositions = new ArrayList<>(); // List of planet positions for each date
 
         private float orbitSpacing; // Spacing between each orbit
         private float mScaleFactor = 1.0f;
@@ -187,12 +271,16 @@ public class MainActivity extends AppCompatActivity {
         private float translateX = 0.0f;
         private float translateY = 0.0f;
         private boolean isPanning = false;
+        private String title = "";
+
+        public void setTitle(String title) {
+            this.title = title;
+        }
 
 
-        public SolarSystemView(Context context, float[] planetPositions) {
-
+        public SolarSystemView(Context context, List<float[]> allPlanetPositions) {
             super(context);
-            this.planetPositions = planetPositions; // Assign planet positions
+            this.allPlanetPositions = allPlanetPositions; // Assign planet positions
             //this.mScaleFactor = scaleFactor; // Assign scaling factor
 
             // Initialize paints and other properties
@@ -220,8 +308,8 @@ public class MainActivity extends AppCompatActivity {
             starlinePaint.setStrokeWidth(2);
 
             textPaint = new Paint();
-            textPaint.setColor(Color.BLUE);
-            textPaint.setTextSize(40);
+            textPaint.setColor(Color.WHITE);
+            textPaint.setTextSize(80);
             textPaint.setTextAlign(Paint.Align.CENTER);
         }
 
@@ -260,7 +348,10 @@ public class MainActivity extends AppCompatActivity {
 
             return true;
         }
-
+        public void setPlanetPositions(float[] planetPositions) {
+            this.planetPositions = planetPositions;
+            invalidate();
+        }
 
         public void scale(float scaleFactor) {
             mScaleFactor *= scaleFactor;
@@ -290,6 +381,21 @@ public class MainActivity extends AppCompatActivity {
             centerX = canvas.getWidth() / 2f;
             centerY = canvas.getHeight() / 2f;
 
+            Paint starPaint = new Paint();
+            starPaint.setColor(Color.WHITE);
+
+            Random rand = new Random();
+            canvas.drawText(title, canvas.getWidth() / 2, canvas.getHeight() - 50, textPaint);
+
+
+            int numStars = 200;  // Change this to the number of stars you want
+            float starRadius = 2.0f;  // Radius of each star. Adjust as desired.
+            for (int i = 0; i < numStars; i++) {
+                float x = rand.nextFloat() * getWidth();
+                float y = rand.nextFloat() * getHeight();
+                canvas.drawCircle(x, y, starRadius, starPaint);
+            }
+
             // Draw planet orbits
             for (int i = 0; i < planetOrbitRadii.length; i++) {
                 float radius = orbitSpacing * (i + 1);
@@ -297,46 +403,53 @@ public class MainActivity extends AppCompatActivity {
             }
 
             // Collect all planet points
-            List<PointF> planetPoints = new ArrayList<>();
+            for (float[] planetPositions : allPlanetPositions) { // Iterate over each set of planet positions
+                // Collect all planet points
+                List<PointF> planetPoints = new ArrayList<>();
+                int randomNum = rand.nextInt(12);
+                starlinePaint.setColor(colors[randomNum]);
 
-            // Draw planets on orbits
-            for (int i = 0; i < planetPositions.length; i++) {
-                float angle = (float) Math.toRadians(planetPositions[i]); // Convert angle to radians
-                float radius = orbitSpacing * (i + 1);
+                // Draw planets on orbits
+                for (int i = 0; i < planetPositions.length; i++) {
+                    float angle = (float) Math.toRadians(planetPositions[i]); // Convert angle to radians
+                    float radius = orbitSpacing * (i + 1);
 
-                float x = centerX + radius * (float) Math.cos(angle);
-                float y = centerY + radius * (float) Math.sin(angle);
+                    float x = centerX + radius * (float) Math.cos(angle);
+                    float y = centerY + radius * (float) Math.sin(angle);
 
-                // Collect this planet point
-                planetPoints.add(new PointF(x, y));
+                    // Collect this planet point
+                    planetPoints.add(new PointF(x, y));
 
-                canvas.drawCircle(x, y, 20, planetPaint);
-                canvas.drawText(planetNames[i], x, y - 40, textPaint);
-
-                canvas.drawLine(centerX, centerY, x, y, starlinePaint);
+                    canvas.drawCircle(x, y, 10, planetPaint);
+                    canvas.drawText(planetSymbols.get(planetNames[i]), x, y - 40, textPaint);
 
 
-                // Connect the planets with lines
-                if (i < planetPositions.length - 1) {
-                    float nextAngle = (float) Math.toRadians(planetPositions[i + 1]); // Convert angle to radians
-                    float nextRadius = orbitSpacing * (i + 2);
+                    canvas.drawLine(centerX, centerY, x, y, starlinePaint);
 
-                    float nextX = centerX + nextRadius * (float) Math.cos(nextAngle);
-                    float nextY = centerY + nextRadius * (float) Math.sin(nextAngle);
 
-                    //canvas.drawLine(x, y, nextX, nextY, linePaint);
+                    // Connect the planets with lines
+                    if (i < planetPositions.length - 1) {
+                        float nextAngle = (float) Math.toRadians(planetPositions[i + 1]); // Convert angle to radians
+                        float nextRadius = orbitSpacing * (i + 2);
+
+                        float nextX = centerX + nextRadius * (float) Math.cos(nextAngle);
+                        float nextY = centerY + nextRadius * (float) Math.sin(nextAngle);
+
+                        //canvas.drawLine(x, y, nextX, nextY, linePaint);
+                    }
                 }
-            }
 
-            // Calculate the convex hull points
-            List<PointF> hullPoints = ((MainActivity)getContext()).calculateConvexHull(planetPoints);
+                // Calculate the convex hull points
+                List<PointF> hullPoints = ((MainActivity) getContext()).calculateConvexHull(planetPoints);
 
-            // Draw the convex hull
+                // Draw the convex hull
            /* PointF previousPoint = hullPoints.get(hullPoints.size() - 1);  // Start with the last point
             for (PointF point : hullPoints) {
                 canvas.drawLine(previousPoint.x, previousPoint.y, point.x, point.y, hullPaint);
                 previousPoint = point;
             }*/
+
+            }
             canvas.restore();
         }
 
@@ -398,7 +511,7 @@ public class MainActivity extends AppCompatActivity {
         return planetPositions;
     }
 
-    private File createImageFile(View view) throws IOException {
+    private File createImageFilePNG(View view) throws IOException {
         Bitmap bitmap = Bitmap.createBitmap(view.getWidth(), view.getHeight(), Bitmap.Config.ARGB_8888);
         Canvas canvas = new Canvas(bitmap);
         view.draw(canvas);
@@ -413,6 +526,30 @@ public class MainActivity extends AppCompatActivity {
 
         return imageFile;
     }
+
+    private File createImageFile(View view) throws IOException {
+        // Create a bitmap of the view
+        Bitmap bitmap = Bitmap.createBitmap(view.getWidth(), view.getHeight(), Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(bitmap);
+        view.draw(canvas);
+
+        // Save bitmap to cache directory
+        File cacheDir = getExternalCacheDir();
+        if(cacheDir == null) throw new IOException("Unable to get cache directory");
+
+        // Change the filename extension to .jpg
+        File imageFile = new File(cacheDir, "solar_system.jpg");
+
+        FileOutputStream fos = new FileOutputStream(imageFile);
+
+        // Change the compress format to JPEG
+        bitmap.compress(Bitmap.CompressFormat.JPEG, 100, fos);
+
+        fos.close();
+
+        return imageFile;
+    }
+
 
     public List<PointF> calculateConvexHull(List<PointF> points) {
         // We need at least three points for a polygon
@@ -497,6 +634,20 @@ public class MainActivity extends AppCompatActivity {
             return true;
         }
     }
+
+    public int getMonth(String birthdate) {
+        SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+        try {
+            Date date = format.parse(birthdate);
+            Calendar calendar = Calendar.getInstance();
+            calendar.setTime(date);
+            return calendar.get(Calendar.MONTH); // Note that January is 0
+        } catch (ParseException e) {
+            e.printStackTrace();
+            return 0;
+        }
+    }
+
 
 }
 
