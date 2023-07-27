@@ -421,7 +421,7 @@ public class MainActivity extends AppCompatActivity {
                     planetPoints.add(new PointF(x, y));
 
                     canvas.drawCircle(x, y, 10, planetPaint);
-                    canvas.drawText(planetSymbols.get(planetNames[i]), x, y - 40, textPaint);
+                    //canvas.drawText(planetSymbols.get(planetNames[i]), x, y - 40, textPaint);
 
 
                     canvas.drawLine(centerX, centerY, x, y, starlinePaint);
@@ -450,6 +450,7 @@ public class MainActivity extends AppCompatActivity {
             }*/
 
             }
+
             canvas.restore();
         }
 
