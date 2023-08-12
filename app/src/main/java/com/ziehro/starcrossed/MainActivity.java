@@ -56,6 +56,7 @@ public class MainActivity extends AppCompatActivity {
     private TextView dateTV;
 
     private Button drawButton;
+    private Button sunButton;
     private SolarSystemView solarSystemView;
 
     private float[] planetOrbitRadii = {100, 200, 300, 400, 500, 600, 700, 800}; // Radii of planet orbits
@@ -100,7 +101,7 @@ public class MainActivity extends AppCompatActivity {
 
         canvasLayout = findViewById(R.id.canvas_layout);
         drawButton = findViewById(R.id.draw_button);
-
+        sunButton= findViewById(R.id.sunZenith);
         luckyNumbersTextView = findViewById(R.id.luckyNumbersTextView);
         dateTV = findViewById(R.id.dateTV2);
 
@@ -177,6 +178,15 @@ public class MainActivity extends AppCompatActivity {
                 allPlanetPositions.clear();
                 canvasLayout.removeAllViews();
                 canvasLayout.invalidate();
+            }
+        });
+
+        sunButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Intent i = new Intent(getApplicationContext(), SunZenith.class);
+                startActivity(i);
+
             }
         });
 
@@ -290,7 +300,8 @@ public class MainActivity extends AppCompatActivity {
 
             planetPaint = new Paint();
             planetPaint.setColor(Color.BLUE);
-            planetPaint.setStyle(Paint.Style.FILL);
+            planetPaint.setStrokeWidth(10);
+            planetPaint.setStyle(Paint.Style.STROKE);
 
             linePaint = new Paint();
             linePaint.setColor(Color.YELLOW);
@@ -420,7 +431,7 @@ public class MainActivity extends AppCompatActivity {
                     // Collect this planet point
                     planetPoints.add(new PointF(x, y));
 
-                    canvas.drawCircle(x, y, 10, planetPaint);
+                    canvas.drawCircle(x, y, 100, planetPaint);
                     //canvas.drawText(planetSymbols.get(planetNames[i]), x, y - 40, textPaint);
 
 
